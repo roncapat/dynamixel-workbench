@@ -262,37 +262,23 @@ class DynamixelDriver:
                     return i
         return -1
 
-    def findModelName(self, model_number):  # TODO: use dict
-        if model_number == dyn_item.AX_12A:
-            return "AX-12A"
-        elif model_number == dyn_item.AX_12W:
-            return "AX-12W"
-        elif model_number == dyn_item.AX_18A:
-            return "AX-18A"
-        elif model_number == dyn_item.RX_10:
-            return "RX-10"
-        elif model_number == dyn_item.RX_24F:
-            return "RX-24F"
-        elif model_number == dyn_item.RX_28:
-            return "RX-28"
-        elif model_number == dyn_item.RX_64:
-            return "RX-64"
-        elif model_number == dyn_item.EX_106:
-            return "EX-106"
-        elif model_number == dyn_item.MX_12W:
-            return "MX-12W"
-        elif model_number == dyn_item.MX_28:
-            return "MX-28"
-        elif model_number == dyn_item.MX_28_2:
-            return "MX-28-2"
-        elif model_number == dyn_item.MX_64:
-            return "MX-64"
-        elif model_number == dyn_item.MX_64_2:
-            return "MX-64-2"
-        elif model_number == dyn_item.MX_106:
-            return "MX-106"
-        elif model_number == dyn_item.MX_106_2:
-            return "MX-106-2"
+    def findModelName(self, model_number):
+        d = {dyn_item.AX_12A: "AX-12A",
+             dyn_item.AX_12W: "AX-12W",
+             dyn_item.AX_18A: "AX-18A",
+             dyn_item.RX_10: "RX-10",
+             dyn_item.RX_24F: "RX-24F",
+             dyn_item.RX_28: "RX-28",
+             dyn_item.RX_64: "RX-64",
+             dyn_item.EX_106: "EX-106",
+             dyn_item.MX_12W: "MX-12W",
+             dyn_item.MX_28: "MX-28",
+             dyn_item.MX_28_2: "MX-28-2",
+             dyn_item.MX_64: "MX-64",
+             dyn_item.MX_64_2: "MX-64-2",
+             dyn_item.MX_106: "MX-106",
+             dyn_item.MX_106_2: "MX-106-2"}
+        return d[model_number]
 
     def addSyncWrite(self, item_name):
         swh = SyncWriteHandler()
