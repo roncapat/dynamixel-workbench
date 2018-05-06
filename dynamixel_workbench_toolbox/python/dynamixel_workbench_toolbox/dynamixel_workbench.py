@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # coding: UTF-8
 
+# This Python porting of the original Dynamixel Workbench Toolbox from ROBOTIS
+# was written by Patrick Roncagliolo and Marco Lapolla as part of a project
+# developed at the DIBRIS BIOLab of the University of Genoa, Italy.
+
 from dynamixel_workbench_toolbox import *
 
 X_SERIES_CURRENT_CONTROL_MODE = 0
