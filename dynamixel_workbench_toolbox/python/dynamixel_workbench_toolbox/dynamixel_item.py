@@ -216,7 +216,6 @@ class ControlTable:
         self._item.append(ct_item.ControlTableItem(ADDR_AX_MOVING, "Moving", BYTE))
         self._item.append(ct_item.ControlTableItem(ADDR_AX_LOCK, "Lock", BYTE))
         self._item.append(ct_item.ControlTableItem(ADDR_AX_PUNCH, "Punch", WORD))
-        self._the_number_of_item = len(self._item)
 
     def setRXItem(self):
         self._item = []
@@ -252,7 +251,6 @@ class ControlTable:
         self._item.append(ct_item.ControlTableItem(ADDR_AX_MOVING, "Moving", BYTE))
         self._item.append(ct_item.ControlTableItem(ADDR_AX_LOCK, "Lock", BYTE))
         self._item.append(ct_item.ControlTableItem(ADDR_AX_PUNCH, "Punch", WORD))
-        self._the_number_of_item = len(self._item)
 
     def setEXItem(self):
         self._item = []
@@ -289,7 +287,6 @@ class ControlTable:
         self._item.append(ct_item.ControlTableItem(ADDR_AX_LOCK, "Lock", BYTE))
         self._item.append(ct_item.ControlTableItem(ADDR_AX_PUNCH, "Punch", WORD))
         self._item.append(ct_item.ControlTableItem(56, "Punch", WORD))
-        self._the_number_of_item = len(self._item)
 
     def setMXItem(self):
         self._item = []
@@ -327,7 +324,6 @@ class ControlTable:
         self._item.append(ct_item.ControlTableItem(ADDR_AX_PUNCH, "Punch", WORD))
         self._item.append(ct_item.ControlTableItem(56, "Punch", WORD))
         self._item.append(ct_item.ControlTableItem(73, "Goal_Acceleration", BYTE))
-        self._the_number_of_item = len(self._item)
 
     def setMX2Item(self):
         self._item = []
@@ -380,7 +376,6 @@ class ControlTable:
         self._item.append(ct_item.ControlTableItem(140, "Position_Trajectory", 4))
         self._item.append(ct_item.ControlTableItem(144, "Present_Input_Voltage", 2))
         self._item.append(ct_item.ControlTableItem(146, "Present_Temperature", 1))
-        self._the_number_of_item = len(self._item)
 
     def setExtMXItem(self):
         self._item = []
@@ -421,7 +416,6 @@ class ControlTable:
         self._item.append(ct_item.ControlTableItem(70, "Torque_Control_Mode_Enable", BYTE))
         self._item.append(ct_item.ControlTableItem(71, "Goal_Torque", WORD))
         self._item.append(ct_item.ControlTableItem(73, "Goal_Acceleration", BYTE))
-        self._the_number_of_item = len(self._item)
 
     def getControlTableItem(self, num):
         if num == AX_12A or num == AX_12W or num == AX_18A:

@@ -3,7 +3,7 @@
 
 import time
 
-import dynamixel_sdk as dynSDK
+import dynamixel_sdk as dyn_sdk
 
 import dynamixel_item as dyn_item
 import dynamixel_tool as dyn_tool
@@ -16,18 +16,18 @@ WORD = 2
 DWORD = 4
 
 
-# ct_item.ControlTableItem control_table; dynSDK.GroupSyncWrite _groupSyncWrite;
+# ct_item.ControlTableItem control_table; dyn_sdk.GroupSyncWrite groupSyncWrite;
 class SyncWriteHandler:
     def __init__(self):
-        self.control_table = None
-        self._groupSyncWrite = None
+        self.control_table_item = None
+        self.groupSyncWrite = None
 
 
-# ct_item.ControlTableItem control_table; dynSDK.GroupSyncRead _groupSyncRead;
+# ct_item.ControlTableItem control_table; dyn_sdk.GroupSyncRead groupSyncRead;
 class SyncReadHandler:
     def __init__(self):
-        self.control_table = None
-        self._groupSyncWrite = None
+        self.control_table_item = None
+        self.groupSyncRead = None
 
 
 class DynamixelDriver:
@@ -39,42 +39,38 @@ class DynamixelDriver:
         self.packetHandler = None
         self.packetHandler_1 = None
         self.packetHandler_2 = None
+        self.groupBulkWrite = None
+        self.groupBulkRead = None
 
     def __del__(self):
-        for i in range(0, self.tools_cnt):
-            for j in range(0, self.tools[i].dxl_info_cnt):
-                self.writeRegister(self.tools[i].dxl_info[j].id, "Torque_Enable", False)
+        for x in self.tools:
+            for y in x.dxl_info:
+                self.writeRegister(y.id, "Torque_Enable", False)
         self.portHandler.closePort()
 
-    def initDXLinfo(self):
-        for x in self.tools:
-            x.dxl_info = []
-
-    def setTools(self, model_number, id):
-        if len(self.tools) == 0:
-            self.initDXLinfo()
-            tool = dyn_tool.DynamixelTool()
-            tool.addTool(model_number, id)
-            self.tools.append(tool)
-        elif self.tools[-1].dxl_info[0].model_name == self.findModelName(model_number):
-            self.tools[-1].addDXL(model_number, id)
+    def setTools(self, model_number, dxl_id):
+        if len(self.tools) > 0 and self.tools[-1].dxl_info[0].model_number == model_number:
+            self.tools[-1].addDXL(model_number, dxl_id)
         else:
             tool = dyn_tool.DynamixelTool()
-            tool.addTool(model_number, id)
+            tool.addTool(model_number, dxl_id)
             self.tools.append(tool)
 
     def init(self, device_name, baud_rate):
         return self.setPortHandler(device_name) and self.setBaudrate(baud_rate) and self.setPacketHandler()
 
     def setPortHandler(self, device_name):
-        self.portHandler = dynSDK.PortHandler(device_name)
+        self.portHandler = dyn_sdk.PortHandler(device_name)
         return self.portHandler.openPort()
 
-    def setPacketHandler(self, protocol_version=1.0):
-        self.packetHandler_1 = dynSDK.PacketHandler(1.0)
-        self.packetHandler_2 = dynSDK.PacketHandler(2.0)
-        self.packetHandler = self.packetHandler_1 if protocol_version == 1.0 else self.packetHandler_2
-        return True
+    def setPacketHandler(self, protocol_version=None):
+        if protocol_version is None:
+            self.packetHandler_1 = dyn_sdk.PacketHandler(1.0)
+            self.packetHandler_2 = dyn_sdk.PacketHandler(2.0)
+            return self.packetHandler_1.getProtocolVersion() == 1.0 and self.packetHandler_2.getProtocolVersion() == 2.0
+        else:
+            self.packetHandler = dyn_sdk.PacketHandler(protocol_version)
+            return self.packetHandler.getProtocolVersion() == protocol_version
 
     def setBaudrate(self, baud_rate):
         return self.portHandler.setBaudRate(baud_rate)
@@ -90,70 +86,66 @@ class DynamixelDriver:
             for y in x.dxl_info:
                 if y.id == id:
                     return y.model_name
+        return None
 
     def getModelNum(self, id):
         for x in self.tools:
             for y in x.dxl_info:
                 if y.id == id:
                     return y.model_num
+        return None
 
-    def getcontrolItem(self, id):
+    def getControlItem(self, id):
         for x in self.tools:
             for y in x.dxl_info:
                 if y.id == id:
                     return x.control_table
+        return None
 
     def getTheNumberOfItem(self, id):
         for x in self.tools:
             for y in x.dxl_info:
                 if y.id == id:
                     return len(x.control_table)
+        return None
 
-    def scan(self, _range):
+    def scan(self, id_range):
         protocol_version = 2.0
         get_ids = []
         self.tools = []
 
-        for dxl_id in range(1, _range + 1):
-            ok, model_number, error = self.packetHandler_1.ping(self.portHandler, dxl_id, True)
-            if ok == dynSDK.COMM_SUCCESS:
+        for dxl_id in range(1, id_range + 1):
+            model_number, ok, error = self.packetHandler_1.ping(self.portHandler, dxl_id)
+            if ok == dyn_sdk.COMM_SUCCESS:
                 get_ids.append(dxl_id)
                 self.setTools(model_number, dxl_id)
                 protocol_version = 1.0
 
-        for dxl_id in range(1, _range + 1):
-            ok, model_number, error = self.packetHandler_2.ping(self.portHandler, dxl_id, True)
-            if ok == dynSDK.COMM_SUCCESS:
+        for dxl_id in range(1, id_range + 1):
+            model_number, ok, error = self.packetHandler_2.ping(self.portHandler, dxl_id)
+            if ok == dyn_sdk.COMM_SUCCESS:
                 get_ids.append(dxl_id)
                 self.setTools(model_number, dxl_id)
                 protocol_version = 2.0
 
-        if len(get_ids) == 0 or not self.setPacketHandler(protocol_version):
-            return False, len(get_ids), get_ids
+        if get_ids == [] or not self.setPacketHandler(protocol_version):
+            return False, 0, []
         else:
             return True, len(get_ids), get_ids
 
-    ###
-
     def ping(self, dxl_id):
-        protocol_version = 1.0
-
-        ok, model_number, error = self.packetHandler_1.ping(self.portHandler, dxl_id, True)
-        if ok == dynSDK.COMM_SUCCESS:
+        model_number, ok, error = self.packetHandler_1.ping(self.portHandler, dxl_id)
+        if ok == dyn_sdk.COMM_SUCCESS:
             self.setTools(model_number, dxl_id)
             protocol_version = 1.0
         else:
-            ok, model_number, error = self.packetHandler_2.ping(self.portHandler, dxl_id, True)
-            if ok == dynSDK.COMM_SUCCESS:
+            model_number, ok, error = self.packetHandler_2.ping(self.portHandler, dxl_id)
+            if ok == dyn_sdk.COMM_SUCCESS:
                 self.setTools(model_number, dxl_id)
                 protocol_version = 2.0
             else:
                 return False, 0
-
-        if not self.setPacketHandler(protocol_version):
-            return False, 0
-        else:
-            return True, model_number
+        return self.setPacketHandler(protocol_version), model_number
 
     def reboot(self, dxl_id):
         if self.packetHandler.getProtocolVersion() == 1.0:
@@ -162,30 +154,24 @@ class DynamixelDriver:
         comm_result, error = self.packetHandler.reboot(self.portHandler, dxl_id)
         time.sleep(2)
 
-        return comm_result == dynSDK.COMM_SUCCESS and error != 0
-
-    ##
+        return comm_result == dyn_sdk.COMM_SUCCESS and error != 0
 
     def reset(self, dxl_id):
-        ok = False
-        baud = 0
-        new_id = 1
-
         if self.packetHandler.getProtocolVersion() == 1.0:
             # Reset Dynamixel except ID and Baudrate
-            comm_result, error = self.packetHandler_1.factoryReset(self.portHandler, dxl_id, 0x00)
+            comm_result, error = self.packetHandler.factoryReset(self.portHandler, dxl_id, 0x00)
             time.sleep(2)
 
-            if comm_result == dynSDK.COMM_SUCCESS:
+            if comm_result == dyn_sdk.COMM_SUCCESS:
                 if error != 0:
                     return False
 
                 for x in self.tools:
                     for y in x.dxl_info:
                         if y.id == id:
-                            y.id = new_id
+                            y.id = 1
 
-                model_name = self.getModelName(new_id)
+                model_name = self.getModelName(1)
                 if model_name[:2] == "AX" or model_name == "MX-12W":
                     baud = 1000000
                 else:
@@ -212,19 +198,19 @@ class DynamixelDriver:
 
         elif self.packetHandler.getProtocolVersion() == 2.0:
             # Reset Dynamixel except ID and Baudrate
-            comm_result, error = self.packetHandler_2.factoryReset(self.portHandler, dxl_id, 0x00)
+            comm_result, error = self.packetHandler.factoryReset(self.portHandler, dxl_id, 0x00)
             time.sleep(2)
 
-            if comm_result == dynSDK.COMM_SUCCESS:
+            if comm_result == dyn_sdk.COMM_SUCCESS:
                 if error != 0:
                     return False
 
                 for x in self.tools:
                     for y in x.dxl_info:
                         if y.id == id:
-                            y.id = new_id
+                            y.id = 1
 
-                model_name = self.getModelName(new_id)
+                model_name = self.getModelName(1)
                 if model_name[:2] == "XL-320":
                     baud = 1000000
                 else:
@@ -242,7 +228,7 @@ class DynamixelDriver:
 
     def writeRegister(self, dxl_id, item_name, data):
         error = 0
-        dxl_comm_result = dynSDK.COMM_TX_FAIL
+        dxl_comm_result = dyn_sdk.COMM_TX_FAIL
 
         cti = self.tools[self.getToolsFactor(dxl_id)].getControlItem(item_name)
 
@@ -253,31 +239,30 @@ class DynamixelDriver:
         elif cti.data_length == DWORD:
             dxl_comm_result, error = self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, cti.address, data)
 
-        return dxl_comm_result == dynSDK.COMM_SUCCESS and error != 0
+        return dxl_comm_result == dyn_sdk.COMM_SUCCESS and error != 0
 
     def readRegister(self, id, item_name):
         error = 0
-        dxl_comm_result = dynSDK.COMM_TX_FAIL
-        value = 0
+        dxl_comm_result = dyn_sdk.COMM_TX_FAIL
 
         cti = self.tools[self.getToolsFactor(id)].getControlItem(item_name)
         if cti.data_length == BYTE:
-            dxl_comm_result, value, error = self.packetHandler.read1ByteTxRx(self.portHandler, id, cti.address)
+            data, dxl_comm_result, error = self.packetHandler.read1ByteTxRx(self.portHandler, id, cti.address)
         elif cti.data_length == WORD:
-            dxl_comm_result, value, error = self.packetHandler.read2ByteTxRx(self.portHandler, id, cti.address)
+            data, dxl_comm_result, error = self.packetHandler.read2ByteTxRx(self.portHandler, id, cti.address)
         elif cti.data_length == DWORD:
-            dxl_comm_result, value, error = self.packetHandler.read4ByteTxRx(self.portHandler, id, cti.address)
+            data, dxl_comm_result, error = self.packetHandler.read4ByteTxRx(self.portHandler, id, cti.address)
 
-        return dxl_comm_result == dynSDK.COMM_SUCCESS and error != 0
+        return dxl_comm_result == dyn_sdk.COMM_SUCCESS and error != 0, data
 
-    def getToolsFactor(self, id):
+    def getToolsFactor(self, dxl_id):
         for i, x in enumerate(self.tools):
             for y in x.dxl_info:
-                if y.id == id:
+                if y.id == dxl_id:
                     return i
         return -1
 
-    def findModelName(self, model_number):
+    def findModelName(self, model_number):  # TODO: use dict
         if model_number == dyn_item.AX_12A:
             return "AX-12A"
         elif model_number == dyn_item.AX_12W:
@@ -312,208 +297,119 @@ class DynamixelDriver:
     def addSyncWrite(self, item_name):
         swh = SyncWriteHandler()
         swh.control_table = self.tools[0].getControlItem(item_name)
-        swh._groupSyncWrite = dynSDK.GroupSyncWrite(self.portHandler, self.packetHandler, swh.control_table.address,
+        swh.groupSyncWrite = dyn_sdk.GroupSyncWrite(self.portHandler,
+                                                    self.packetHandler,
+                                                    swh.control_table.address,
                                                     swh.control_table.data_length)
         self.syncWriteHandler.append(swh)
 
-    '''
     def syncWrite(self, item_name, data):
-        dxl_addparam_result = False
-        dxl_comm_result = dynSDK.COMM_TX_FAIL
-        data_byte = []
         cnt = 0
         swh = SyncWriteHandler()
-        for index in range(0, self.sync_write_handler_cnt):
-            if (self.syncWriteHandler[index].control_table.item_name == item_name):
-                swh = self.syncWriteHandler[index]
-        for i in range(0, self.tools_cnt):
-            for j in range(0, self.tools[i].dxl_info_cnt):
-                data_byte[0] = DXL_LOBYTE(DXL_LOWORD(data[cnt]))
-                data_byte[1] = DXL_HIBYTE(DXL_LOWORD(data[cnt]))
-                data_byte[2] = DXL_LOBYTE(DXL_HIWORD(data[cnt]))
-                data_byte[3] = DXL_HIBYTE(DXL_HIWORD(data[cnt]))
+        for x in self.syncWriteHandler:
+            if x.control_table.item_name == item_name:
+                swh = x
+        for x in self.tools:
+            for y in x.dxl_info:
+                data_byte = [dyn_sdk.DXL_LOBYTE(dyn_sdk.DXL_LOWORD(data[cnt])),
+                             dyn_sdk.DXL_HIBYTE(dyn_sdk.DXL_LOWORD(data[cnt])),
+                             dyn_sdk.DXL_LOBYTE(dyn_sdk.DXL_HIWORD(data[cnt])),
+                             dyn_sdk.DXL_HIBYTE(dyn_sdk.DXL_HIWORD(data[cnt]))]
 
-        dxl_addparam_result, data_byte = swh.groupSyncWrite.addParam(self.tools[i].dxl_info[j].id)
-        if (dxl_addparam_result == False):
+                dxl_add_param_result = swh.groupSyncWrite.addParam(y.id, data_byte)
+                if not dxl_add_param_result:
+                    return False
+                cnt += 1
+
+        if swh.groupSyncWrite.txPacket() != dyn_sdk.COMM_SUCCESS:
+            return False
+        else:
+            swh.groupSyncWrite.clearParam()
+            return True
+
+    def addSyncRead(self, item_name):
+        srh = SyncReadHandler()
+        cti = srh.control_table_item = self.tools[0].getControlItem(item_name)
+        srh.groupSyncRead = dyn_sdk.GroupSyncRead(self.portHandler,
+                                                  self.packetHandler,
+                                                  cti.address,
+                                                  cti.data_length)
+        self.syncReadHandler.append(srh)
+
+    def syncRead(self, item_name):
+        srh = SyncReadHandler()
+        data = []
+        for x in self.syncReadHandler:
+            if x.control_table_item.item_name == item_name:
+                srh = x
+
+        for x in self.tools:
+            for y in x.dxl_info:
+                if not srh.groupSyncRead.addParam(y.id):
+                    return False, data
+
+        dxl_comm_result = srh.groupSyncRead.txRxPacket()
+        if dxl_comm_result != dyn_sdk.COMM_SUCCESS:
+            return False, data
+
+        for x in self.tools:
+            for y in x.dxl_info:
+                dxl_get_data_result = srh.groupSyncRead.isAvailable(y.id, srh.control_table_item.address,
+                                                                   srh.control_table_item.data_length)
+                if dxl_get_data_result:
+                    data.append(srh.groupSyncRead.getData(y.id, srh.control_table_item.address,
+                                                          srh.control_table_item.data_length))
+                else:
+                    return False, data
+
+        srh.groupSyncRead.clearParam()
+
+        return True, data
+
+    def initBulkWrite(self):
+        self.groupBulkWrite = dyn_sdk.GroupBulkWrite(self.portHandler, self.packetHandler)
+
+    def addBulkWriteParam(self, dxl_id, item_name, data):
+        cti = self.tools[self.getToolsFactor(dxl_id)].getControlItem(item_name)
+
+        data_byte = [dyn_sdk.DXL_LOBYTE(dyn_sdk.DXL_LOWORD(data)),
+                     dyn_sdk.DXL_HIBYTE(dyn_sdk.DXL_LOWORD(data)),
+                     dyn_sdk.DXL_LOBYTE(dyn_sdk.DXL_HIWORD(data)),
+                     dyn_sdk.DXL_HIBYTE(dyn_sdk.DXL_HIWORD(data))]
+
+        return self.groupBulkWrite.addParam(dxl_id, cti.address, cti.data_length, data_byte)
+
+    def bulkWrite(self):
+        dxl_comm_result = self.groupBulkWrite.txPacket()
+        if dxl_comm_result != dyn_sdk.COMM_SUCCESS:
             return False
 
-        cnt++;
-        }
-        }
+        self.groupBulkWrite.clearParam()
+        return True
 
-        dxl_comm_result = swh.groupSyncWrite->txPacket();
-        if (dxl_comm_result != COMM_SUCCESS)
-        {
-        return false;
-        }
-        swh.groupSyncWrite->clearParam();
-        return true;
-        }
+    def initBulkRead(self):
+        self.groupBulkRead = dyn_sdk.GroupBulkRead(self.portHandler, self.packetHandler)
 
-        void DynamixelDriver::addSyncRead(const char *item_name)
-        {
-        ControlTableItem *cti;
-        cti = tools_[0].getControlItem(item_name);
+    def addBulkReadParam(self, dxl_id, item_name):
+        cti = self.tools[self.getToolsFactor(dxl_id)].getControlItem(item_name)
 
-        syncReadHandler_[sync_read_handler_cnt_].cti = cti;
+        return self.groupBulkRead.addParam(dxl_id, cti.address, cti.data_length)
 
-        syncReadHandler_[sync_read_handler_cnt_++].groupSyncRead = new dynamixel::GroupSyncRead(portHandler_,
-        packetHandler_,
-        cti->address,
-        cti->data_length);
+    def sendBulkReadPacket(self):
+        return self.groupBulkRead.txRxPacket()
 
-    bool DynamixelDriver::syncRead(const char *item_name, int32_t *data)
-    {
-    int dxl_comm_result = COMM_RX_FAIL;
-    bool dxl_addparam_result = false;
-    bool dxl_getdata_result = false;
+    def bulkRead(self, dxl_id, item_name):
+        cti = self.tools[self.getToolsFactor(dxl_id)].getControlItem(item_name)
 
-    int index = 0;
+        dxl_get_data_result = self.groupBulkRead.isAvailable(dxl_id, cti.address, cti.data_length)
+        if not dxl_get_data_result:
+            return False, None
 
-    SyncReadHandler srh;
+        data = self.groupBulkRead.getData(dxl_id, cti.address, cti.data_length)
 
-    for (int index = 0; index < sync_read_handler_cnt_; index++)
-    {
-    if (!strncmp(syncReadHandler_[index].cti->item_name, item_name, strlen(item_name)))
-    {
-    srh = syncReadHandler_[index];
-    }
-    }
+        return True, data
 
-    for (int i = 0; i < tools_cnt_; i++)
-    {
-    for (int j = 0; j < tools_[i].dxl_info_cnt_; j++)
-    {
-    dxl_addparam_result = srh.groupSyncRead->addParam(tools_[i].dxl_info_[j].id);
-    if (dxl_addparam_result != true)
-    return false;
-    }
-    }
-
-    dxl_comm_result = srh.groupSyncRead->txRxPacket();
-    if (dxl_comm_result != COMM_SUCCESS)
-    {
-    return false;
-    }
-
-    for (int i = 0; i < tools_cnt_; i++)
-    {
-    for (int j = 0; j < tools_[i].dxl_info_cnt_; j++)
-    {
-    uint8_t id = tools_[i].dxl_info_[j].id;
-
-    dxl_getdata_result = srh.groupSyncRead->isAvailable(id, srh.cti->address, srh.cti->data_length);
-    if (dxl_getdata_result)
-    {
-    data[index++] = srh.groupSyncRead->getData(id, srh.cti->address, srh.cti->data_length);
-    }
-    else
-    {
-    return false;
-    }
-    }
-    }
-
-    srh.groupSyncRead->clearParam();
-
-    return true;
-    }
-
-    void DynamixelDriver::initBulkWrite()
-    {
-    groupBulkWrite_ = new dynamixel::GroupBulkWrite(portHandler_, packetHandler_);
-    }
-
-    bool DynamixelDriver::addBulkWriteParam(uint8_t id, const char *item_name, int32_t data)
-    {
-    bool dxl_addparam_result = false;
-    uint8_t data_byte[4] = {0, };
-
-    ControlTableItem *cti;
-    cti = tools_[getToolsFactor(id)].getControlItem(item_name);
-
-    data_byte[0] = DXL_LOBYTE(DXL_LOWORD(data));
-    data_byte[1] = DXL_HIBYTE(DXL_LOWORD(data));
-    data_byte[2] = DXL_LOBYTE(DXL_HIWORD(data));
-    data_byte[3] = DXL_HIBYTE(DXL_HIWORD(data));
-
-    dxl_addparam_result = groupBulkWrite_->addParam(id, cti->address, cti->data_length, data_byte);
-    if (dxl_addparam_result != true)
-    {
-    return false;
-    }
-
-    return true;
-    }
-
-    bool DynamixelDriver::bulkWrite()
-    {
-    int dxl_comm_result = COMM_TX_FAIL;
-
-    dxl_comm_result = groupBulkWrite_->txPacket();
-    if (dxl_comm_result != COMM_SUCCESS)
-    {
-    return false;
-    }
-
-    groupBulkWrite_->clearParam();
-
-    return true;
-    }
-
-    void DynamixelDriver::initBulkRead()
-    {
-    groupBulkRead_ = new dynamixel::GroupBulkRead(portHandler_, packetHandler_);
-    }
-
-    bool DynamixelDriver::addBulkReadParam(uint8_t id, const char *item_name)
-    {
-    bool dxl_addparam_result = false;
-
-    ControlTableItem *cti;
-    cti = tools_[getToolsFactor(id)].getControlItem(item_name);
-
-    dxl_addparam_result = groupBulkRead_->addParam(id, cti->address, cti->data_length);
-    if (dxl_addparam_result != true)
-    {
-    return false;
-    }
-
-    return true;
-    }
-
-    bool DynamixelDriver::sendBulkReadPacket()
-    {
-    int dxl_comm_result = COMM_RX_FAIL;
-
-    dxl_comm_result = groupBulkRead_->txRxPacket();
-    if (dxl_comm_result != COMM_SUCCESS)
-    {
-    return false;
-    }
-
-    return true;
-    }
-
-    bool DynamixelDriver::bulkRead(uint8_t id, const char *item_name, int32_t *data)
-    {
-    bool dxl_getdata_result = false;
-    ControlTableItem *cti;
-    cti = tools_[getToolsFactor(id)].getControlItem(item_name);
-
-    dxl_getdata_result = groupBulkRead_->isAvailable(id, cti->address, cti->data_length);
-    if (dxl_getdata_result != true)
-    {
-    return false;
-    }
-
-    *data = groupBulkRead_->getData(id, cti->address, cti->data_length);
-
-    return true;
-    }
-    '''
-
-    def convertRadian2Value(self, dxl_id, radian):
+    def convertDxlRadian2Value(self, dxl_id, radian):
         t = self.tools[self.getToolsFactor(dxl_id)]
         return self.convertValue2Radian(radian,
                                         t.getValueOfMaxRadianPosition(),
@@ -521,7 +417,7 @@ class DynamixelDriver:
                                         t.getMaxRadian(),
                                         t.getMinRadian())
 
-    def convertValue2Radian(self, dxl_id, value):
+    def convertDxlValue2Radian(self, dxl_id, value):
         t = self.tools[self.getToolsFactor(dxl_id)]
         return self.convertValue2Radian(value,
                                         t.getValueOfMaxRadianPosition(),
@@ -541,6 +437,7 @@ class DynamixelDriver:
 
     def convertValue2Radian(self, value, max_position, min_position, max_radian, min_radian):
         zero_position = (max_position + min_position) / 2
+        radian = 0
         if value > zero_position:
             radian = float(value - zero_position) * max_radian / float((max_position - zero_position))
         elif value < zero_position:
