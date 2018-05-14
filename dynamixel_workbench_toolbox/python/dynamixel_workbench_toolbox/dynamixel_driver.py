@@ -53,7 +53,7 @@ class DynamixelDriver:
         self.portHandler.closePort()
 
     def setTools(self, model_number, dxl_id):
-        if len(self.tools) > 0 and self.tools[-1].dxl_info[0].model_number == model_number:
+        if len(self.tools) > 0 and self.tools[-1].dxl_info[0].model_num == model_number:
             self.tools[-1].addDXL(model_number, dxl_id)
         else:
             tool = dyn_tool.DynamixelTool()
@@ -69,7 +69,7 @@ class DynamixelDriver:
 
     def setPacketHandler(self, protocol_version=None):
         if protocol_version is None:
-            self.packetHandler_1 = dyn_sdk.PacketHandler(1.0)
+            self.packetHandler = self.packetHandler_1 = dyn_sdk.PacketHandler(1.0)
             self.packetHandler_2 = dyn_sdk.PacketHandler(2.0)
             return self.packetHandler_1.getProtocolVersion() == 1.0 and self.packetHandler_2.getProtocolVersion() == 2.0
         else:
@@ -243,7 +243,7 @@ class DynamixelDriver:
         elif cti.data_length == DWORD:
             dxl_comm_result, error = self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, cti.address, data)
 
-        return dxl_comm_result == dyn_sdk.COMM_SUCCESS and error != 0
+        return dxl_comm_result == dyn_sdk.COMM_SUCCESS and error == 0
 
     def readRegister(self, id, item_name):
         error = 0
@@ -257,7 +257,7 @@ class DynamixelDriver:
         elif cti.data_length == DWORD:
             data, dxl_comm_result, error = self.packetHandler.read4ByteTxRx(self.portHandler, id, cti.address)
 
-        return dxl_comm_result == dyn_sdk.COMM_SUCCESS and error != 0, data
+        return dxl_comm_result == dyn_sdk.COMM_SUCCESS and error == 0, data
 
     def getToolsFactor(self, dxl_id):
         for i, x in enumerate(self.tools):

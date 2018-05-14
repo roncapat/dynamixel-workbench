@@ -4,7 +4,7 @@ from dynamixel_workbench_toolbox import *
 # was written by Patrick Roncagliolo and Marco Lapolla as part of a project
 # developed at the DIBRIS BIOLab of the University of Genoa, Italy.
 
-class ExtendedDynamixelworkbench(DynamixelWorkbench):
+class ExtendedDynamixelWorkbench(DynamixelWorkbench):
     def readPresentPosition(self, dxl_id):
         return self.itemRead(dxl_id, "Present_Position")
 
@@ -21,9 +21,51 @@ class ExtendedDynamixelworkbench(DynamixelWorkbench):
                     return False
             return True
 
+    def readPresentPosition(self, dxl_id):
+        return self.itemRead(dxl_id, "Present_Position")
+
+    def readPresentSpeed(self, id):
+        return self.itemRead(id, "Present_Speed")
+
+    def readPresentVoltage(self, id):
+        return self.itemRead(id, "Present_Voltage")
+
+    def readPresentTemperature(self, id):
+        return self.itemRead(id, "Present_Temperature")
+
     def readAllPresentPosition(self, id_range):
         res, count, ids = self._driver.scan(id_range)
-        return res, [self._driver.readPresentPosition(ids[i]) for i in range(0, count) if res]
+        return res, [self.readPresentPosition(ids[i]) for i in range(0, count) if res]
+
+    def readAllPresentSpeed(self, range_):
+	    speed_to_return = []
+	    isOK, cont, ids = self.scan(range_)
+	    if isOK == False:
+		    return False, []
+	    else:
+		    for i in range(0, cont):
+			    speed_to_return.append(self.readPresentSpeed(ids[i]))
+		    return True, speed_to_return
+
+    def readAllPresentVoltage(self, range_):
+	    vol_to_return = []
+	    isOK, cont, ids = self.scan(range_)
+	    if isOK == False:
+		    return False, []
+	    else:
+		    for i in range(0, cont):
+			    vol_to_return.append(self.readPresentVoltage(ids[i]))
+		    return True, vol_to_return
+
+    def readAllPresentTemperature(self, range_):
+	    temp_to_return = []
+	    isOK, cont, ids = self.scan(range_)
+	    if isOK == False:
+		    return False, []
+	    else:
+		    for i in range(0, cont):
+			    temp_to_return.append(self.readPresentTemperature(ids[i]))
+		    return True, temp_to_return
 
     def getAlarmShutdownStatus(self, id):
         dxl_alarm_shutdown = self.itemRead(id, "Shutdown")

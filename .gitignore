@@ -30,3 +30,5 @@
 
 # Users
 *.vscode
+
+*.pyc
